@@ -17,6 +17,7 @@ class BulletTracer : FastProjectile
 		+NOEXTREMEDEATH
 		+WINDTHRUST
 		+THRUGHOST
+		+NOFRICTION // Prevents unwanted underwater velocity weirdness
 		Radius 2;
 		Height 2;
 		Speed 75;
