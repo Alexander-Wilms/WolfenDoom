@@ -69,10 +69,11 @@ TCHAR DeveloperCommentaryCmd[][50] = {
 
 enum Languages
 {
-	LANGUAGE_MAX = 9
+	LANGUAGE_MAX = 10
 };
 
 TCHAR LanguagesList[][50] = {
+	TEXT(""), //unchanged
 	TEXT("English"), // en
 	TEXT("German"), // de
 	TEXT("Spanish"), // es
@@ -85,6 +86,7 @@ TCHAR LanguagesList[][50] = {
 };
 
 TCHAR LanguagesCmd[][50] = {
+	TEXT(""), //unchanged
 	TEXT("+language en"), // en
 	TEXT("+language de"), // de
 	TEXT("+language es"), // es
