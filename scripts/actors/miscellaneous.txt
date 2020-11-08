@@ -342,3 +342,87 @@ class MineCartEMoving : ModelBase
 		return true;
 	}
 }
+
+// Tracer which checks whether an actor can be spawned at a particular position.
+class SpawnCheckTracer : LineTracer
+{
+	// Whether or not a surface was hit
+	bool hitSurface;
+
+	// Returns the closest level surface hit
+	override ETraceStatus TraceCallback()
+	{
+		if (Results.HitType == TRACE_HitWall)
+		{
+			if (Results.HitLine.Flags & Line.ML_TWOSIDED)
+			{
+				if (Results.Tier != TIER_Middle)
+				{
+					hitSurface = true;
+					return TRACE_Stop;
+				}
+			}
+			else
+			{
+				hitSurface = true;
+				return TRACE_Stop;
+			}
+		}
+		else if (Results.HitType == TRACE_HitFloor || Results.HitType == TRACE_HitCeiling)
+		{
+			hitSurface = true;
+			return TRACE_Stop;
+		}
+		return TRACE_Skip;
+	}
+}
+
+class PositionChecking play
+{
+	static Actor Spawn(class<Actor> type, Vector3 position, int flags, Vector3 masterPosition)
+	{
+		// Setup - get direction, distance, and sector before scanning
+		Vector3 direction = Level.Vec3Diff(masterPosition, position); // position - masterPosition
+		double distance = direction.Length();
+		direction /= distance;
+		Vector3 start = masterPosition - direction;
+		Sector sector = Level.PointInSector(start.XY);
+		// Perform the scan
+		SpawnCheckTracer checker = new("SpawnCheckTracer");
+		checker.hitSurface = false;
+		checker.Trace(start, sector, direction, distance, 0);
+		// Determine actual spawn position
+		Vector3 SpawnPos = position;
+		if (checker.hitSurface)
+		{
+			// Checker trace hit a surface, so spawn 1 unit in front of surface.
+			SpawnPos = checker.Results.HitPos - direction;
+		}
+		// Console.Printf("start: %.3f %.3f %3f, SpawnPos: %.3f %.3f %.3f, HitPos: %.3f %.3f %.3f, hitSurface: %s", start, SpawnPos, checker.Results.HitPos, checker.hitSurface ? "yes" : "no");
+		// Spawn the thing and return it
+		return Actor.Spawn(type, SpawnPos, flags);
+	}
+}
+
+class PositionCheckingSpawner : Actor
+{
+	class<Actor> toSpawn;
+	Property Spawn: toSpawn;
+
+	Default
+	{
+		PositionCheckingSpawner.Spawn "GeneralExplosion_Large";
+	}
+
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		if (!master) { Destroy(); return; }
+		Actor spawned = PositionChecking.Spawn(toSpawn, Pos, ALLOW_REPLACE, master.Pos);
+		spawned.Scale = Scale;
+		spawned.Angle = Angle;
+		spawned.Pitch = Pitch;
+		spawned.SpawnFlags = SpawnFlags;
+		Destroy();
+	}
+}
