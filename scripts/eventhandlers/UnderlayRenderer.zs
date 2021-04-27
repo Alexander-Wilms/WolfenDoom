@@ -23,8 +23,13 @@
 // Used for rendering space suit and gas mask HUD graphics below the HUD
 class UnderlayRenderer : EventHandler
 {
+	const MAX_VOLUME = 127;
+	int heartbeatvolume[MAXPLAYERS], heartbeatdelay1[MAXPLAYERS], heartbeatdelay2[MAXPLAYERS];
+	int heartbeatalpha[MAXPLAYERS], icedalpha[MAXPLAYERS], adrenalinealpha[MAXPLAYERS];
 	TextureID SpaceSuitGraphic;
 	TextureID GasMaskGraphic;
+	TextureID InjuredGraphic;
+	TextureID IcedGraphic;
 	Vector2 SpaceSuitSize;
 
 	override void OnRegister()
@@ -32,6 +37,54 @@ class UnderlayRenderer : EventHandler
 		SpaceSuitGraphic = TexMan.CheckForTexture("STGMASK", TexMan.Type_Any);
 		SpaceSuitSize = TexMan.GetScaledSize(SpaceSuitGraphic);
 		GasMaskGraphic = TexMan.CheckForTexture("STGZASK", TexMan.Type_Any);
+		InjuredGraphic = TexMan.CheckForTexture("M_INJ", TexMan.Type_Any);
+		IcedGraphic = TexMan.CheckForTexture("M_ICED", TexMan.Type_Any);
+	}
+	
+	override void WorldTick()
+	{
+		PlayerInfo p = players[consoleplayer];
+		if ((p.cheats & CF_CHASECAM) == 0)
+		{
+			int pn = p.mo.PlayerNumber();
+			if (p.mo.health > 0 && p.mo.health <= 30)
+			{
+				if (heartbeatdelay1[pn] && heartbeatdelay1[pn] < level.time)
+				{
+					heartbeatdelay1[pn] = 0;
+				}
+
+				if (heartbeatdelay2[pn] && heartbeatdelay2[pn] < level.time)
+				{
+					heartbeatdelay2[pn] = 0;
+				}
+				
+				if (heartbeatalpha[pn] > 0) { --heartbeatalpha[pn]; }
+				
+				//setup icedalpha[pn], adrenalinealpha[pn] here
+
+				if (!heartbeatdelay1[pn] && !heartbeatdelay2[pn])
+				{
+					heartbeatalpha[pn] = 35;
+					heartbeatvolume[pn] = MAX_VOLUME;
+					heartbeatdelay1[pn] = level.time + 10;
+					heartbeatdelay2[pn] = level.time + 14;	
+
+					if (p.mo.health > 20)
+					{
+						heartbeatvolume[pn] = MAX_VOLUME - 50;
+						heartbeatdelay1[pn] = level.time + 21;
+						heartbeatdelay2[pn] = level.time + 34;
+					}
+					else if (p.mo.health > 10)
+					{
+						heartbeatvolume[pn] = MAX_VOLUME - 25;
+						heartbeatdelay1[pn] = level.time + 18;
+						heartbeatdelay2[pn] = level.time + 24;
+					}
+				}
+			}
+		}
 	}
 
 	override void RenderUnderlay(RenderEvent e)
@@ -52,6 +105,39 @@ class UnderlayRenderer : EventHandler
 
 			//double blackAlpha = lightlevel > 64 ? 1.0 - (lightlevel - 64.0) / 192.0 : 1.0; // Experiment
 			double blackAlpha = 1.0 - (lightlevel / 255.0);
+			
+			int HealthScriptDeactivate = BaseStatusBar.GetGlobalACSValue(5);
+			int pn = p.mo.PlayerNumber();
+			if (!HealthScriptDeactivate && p.mo.health > 0 && p.mo.health <= 30)
+			{
+				if (heartbeatdelay1[pn] && heartbeatdelay1[pn] < level.time)
+				{
+					p.mo.A_StartSound("hbeat", CHAN_BODY, CHANF_LOCAL, (double) (heartbeatvolume[pn]) / MAX_VOLUME);
+				}
+
+				if (heartbeatdelay2[pn] && heartbeatdelay2[pn] < level.time)
+				{
+					p.mo.A_StartSound("hbeat", CHAN_BODY, CHANF_LOCAL, (double) (heartbeatvolume[pn]) / MAX_VOLUME);
+				}
+				double s = (double) (heartbeatalpha[pn]);
+				screen.DrawTexture(InjuredGraphic, false, 0, 0, DTA_Fullscreen, true, DTA_Alpha, clamp(1.0 - abs(s - 17.5) / 17.5, 0.0, 1.0));
+			}
+			
+			// Ice damage
+			if (!HealthScriptDeactivate && icedalpha[pn] > 0)
+			{
+				double s = (double) (icedalpha[pn]);
+				screen.DrawTexture(IcedGraphic, false, 0, 0, DTA_Fullscreen, true, DTA_Alpha, clamp(1.0 - abs(s - 17.5) / 17.5, 0.0, 1.0) * 0.2);
+			}
+
+			// Adrenaline
+			int factor = p.mo.CountInv("PowerFactor");
+			if (factor && adrenalinealpha[pn] > 0)
+			{
+				double s = (double) (adrenalinealpha[pn]);
+				screen.DrawTexture(InjuredGraphic, false, 0, 0, DTA_Fullscreen, true, DTA_Alpha, clamp(1.0 - abs(s - 17.5) / 17.5, 0.0, 1.0) * 1.0);
+			}
+			
 			if (SpaceSuit)
 			{
 				// gfg this took me FOREVER to figure out.
